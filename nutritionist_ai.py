@@ -5,9 +5,15 @@ from groq import Groq
 
 load_dotenv()
 
-# Get API key from Streamlit Secrets when deployed,
-# or from .env when running locally.
-api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY"))
+# Get API key from Render environment variable first
+api_key = os.getenv("GROQ_API_KEY")
+
+# If not found, try Streamlit secrets for local use
+if not api_key:
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        api_key = None
 
 if not api_key:
     raise ValueError("GROQ_API_KEY is not configured.")
@@ -16,39 +22,27 @@ client = Groq(api_key=api_key)
 
 
 def generate_nutrition_advice(profile):
-
     prompt = f"""
-You are the Nutrilead AI Nutrition Adviser.
+You are a friendly nutrition adviser for Nutrilead.
 
-Provide practical, simple and personalized nutrition guidance
-based on the user's profile below.
+Give simple, practical, Nigerian-friendly nutrition advice based on the user's profile.
 
 User profile:
-- Age: {profile.get("age")}
-- Sex: {profile.get("sex")}
-- Height: {profile.get("height")} cm
-- Weight: {profile.get("weight")} kg
-- Dietary preference: {profile.get("dietary_preference")}
-- Health goal: {profile.get("health_goal")}
-- Activity level: {profile.get("activity_level")}
-- Food allergies: {profile.get("allergies")}
-- Foods the user enjoys: {profile.get("preferred_foods")}
-- Foods the user wants to avoid: {profile.get("avoided_foods")}
+Age: {profile.get("age")}
+Weight: {profile.get("weight")} kg
+Height: {profile.get("height")} cm
+Dietary preference: {profile.get("dietary_preference")}
+Health goal: {profile.get("health_goal")}
+Health condition: {profile.get("health_condition")}
 
 Give:
-1. A short personalized nutrition summary.
-2. Recommended foods that fit the user's goal.
-3. A simple one-day meal suggestion.
-4. Practical healthy eating tips.
-5. A short Nutrilead tip.
-
-Use simple English.
+1. A short summary of the user's nutrition needs.
+2. Practical foods they can eat.
+3. Foods they may want to reduce.
+4. Simple lifestyle tips.
 
 Do not diagnose diseases or prescribe medication.
-If the user's information suggests a medical condition,
-recommend speaking with a qualified healthcare professional.
-
-Keep the response practical and easy to understand.
+Use simple English.
 """
 
     response = client.chat.completions.create(
@@ -56,10 +50,7 @@ Keep the response practical and easy to understand.
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a careful and practical nutrition "
-                    "adviser for the Nutrilead application."
-                )
+                "content": "You are a helpful nutrition adviser for Nutrilead."
             },
             {
                 "role": "user",
@@ -67,51 +58,35 @@ Keep the response practical and easy to understand.
             }
         ],
         temperature=0.7,
-        max_completion_tokens=1000
     )
 
     return response.choices[0].message.content
 
 
 def generate_meal_plan(profile):
-
     prompt = f"""
-You are the Nutrilead AI Nutrition Adviser.
-
-Create a simple, practical one-day Nigerian-friendly meal plan
-based on the user's nutrition profile.
+Create a simple one-day Nigerian-friendly meal plan for this user.
 
 User profile:
-- Age: {profile.get("age")}
-- Sex: {profile.get("sex")}
-- Height: {profile.get("height")} cm
-- Weight: {profile.get("weight")} kg
-- Dietary preference: {profile.get("dietary_preference")}
-- Health goal: {profile.get("health_goal")}
-- Activity level: {profile.get("activity_level")}
-- Food allergies: {profile.get("allergies")}
-- Foods the user enjoys: {profile.get("preferred_foods")}
-- Foods the user wants to avoid: {profile.get("avoided_foods")}
+Age: {profile.get("age")}
+Weight: {profile.get("weight")} kg
+Height: {profile.get("height")} cm
+Dietary preference: {profile.get("dietary_preference")}
+Health goal: {profile.get("health_goal")}
+Health condition: {profile.get("health_condition")}
 
-Create:
+Include:
+- Breakfast
+- Mid-morning snack
+- Lunch
+- Afternoon snack
+- Dinner
+- Water/hydration suggestion
 
-1. Breakfast
-2. Mid-morning snack
-3. Lunch
-4. Afternoon snack
-5. Dinner
-6. A short hydration tip
+Use affordable and commonly available Nigerian foods where possible.
 
-Use foods that are realistic and commonly available in Nigeria.
-
-Consider the user's allergies, dietary preference,
-health goal, preferred foods, and foods they want to avoid.
-
-Keep the portions practical and the explanation simple.
-
-Do not diagnose diseases or prescribe medication.
-If the user's information suggests a medical condition,
-recommend speaking with a qualified healthcare professional.
+Keep the meal plan practical and easy to follow.
+Do not prescribe medication or claim to treat a disease.
 """
 
     response = client.chat.completions.create(
@@ -119,10 +94,7 @@ recommend speaking with a qualified healthcare professional.
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a careful and practical nutrition "
-                    "adviser for the Nutrilead application."
-                )
+                "content": "You are a practical Nigerian nutrition meal-planning assistant for Nutrilead."
             },
             {
                 "role": "user",
@@ -130,38 +102,23 @@ recommend speaking with a qualified healthcare professional.
             }
         ],
         temperature=0.7,
-        max_completion_tokens=1000
     )
 
     return response.choices[0].message.content
 
 
 def generate_daily_tip(profile):
-
     prompt = f"""
-You are the Nutrilead AI Nutrition Adviser.
+Give one short and practical daily nutrition tip for this user.
 
-Give one short, practical nutrition tip for today.
+User profile:
+Age: {profile.get("age")}
+Dietary preference: {profile.get("dietary_preference")}
+Health goal: {profile.get("health_goal")}
+Health condition: {profile.get("health_condition")}
 
-Consider the user's profile:
-
-- Age: {profile.get("age")}
-- Sex: {profile.get("sex")}
-- Dietary preference: {profile.get("dietary_preference")}
-- Health goal: {profile.get("health_goal")}
-- Activity level: {profile.get("activity_level")}
-- Food allergies: {profile.get("allergies")}
-- Foods they enjoy: {profile.get("preferred_foods")}
-- Foods they avoid: {profile.get("avoided_foods")}
-
-The tip should:
-- Be practical and easy to apply today.
-- Use simple English.
-- Be relevant to the user's goal.
-- Consider their food preferences and allergies.
-- Be no more than 3 short sentences.
-
-Do not diagnose diseases or prescribe medication.
+The tip should be simple, realistic and useful in everyday Nigerian life.
+Do not diagnose or prescribe medication.
 """
 
     response = client.chat.completions.create(
@@ -169,10 +126,7 @@ Do not diagnose diseases or prescribe medication.
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a careful and practical nutrition "
-                    "adviser for the Nutrilead application."
-                )
+                "content": "You are a friendly nutrition adviser for Nutrilead."
             },
             {
                 "role": "user",
@@ -180,7 +134,7 @@ Do not diagnose diseases or prescribe medication.
             }
         ],
         temperature=0.7,
-        max_completion_tokens=300
     )
 
     return response.choices[0].message.content
+  
