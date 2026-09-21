@@ -18,27 +18,28 @@ from nutritionist_ai import (
 )
 
 
-# ---------------------------------------------------
+# ===================================================
 # PAGE SETTINGS
-# ---------------------------------------------------
+# ===================================================
 
 st.set_page_config(
     page_title="Nutrilead AI Nutrition Adviser",
     page_icon="🥗",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 
-# ---------------------------------------------------
+# ===================================================
 # CREATE DATABASE TABLES
-# ---------------------------------------------------
+# ===================================================
 
 create_tables()
 
 
-# ---------------------------------------------------
+# ===================================================
 # SESSION STATE
-# ---------------------------------------------------
+# ===================================================
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -47,21 +48,32 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 if "page" not in st.session_state:
-    st.session_state.page = "Dashboard"
+    st.session_state.page = "My Nutrition Profile"
+
+if "nutrition_advice" not in st.session_state:
+    st.session_state.nutrition_advice = None
+
+if "meal_plan" not in st.session_state:
+    st.session_state.meal_plan = None
+
+if "daily_tip" not in st.session_state:
+    st.session_state.daily_tip = None
 
 
-# ---------------------------------------------------
+# ===================================================
 # LOGIN / CREATE ACCOUNT
-# ---------------------------------------------------
+# ===================================================
 
 if not st.session_state.logged_in:
 
     st.title("🥗 Nutrilead AI Nutrition Adviser")
 
     st.write(
-        "Your personal nutrition assistant for practical and "
-        "healthier food choices."
+        "Your personal nutrition assistant for practical "
+        "and healthier food choices."
     )
+
+    st.divider()
 
     login_tab, signup_tab = st.tabs(
         ["Login", "Create Account"]
@@ -91,7 +103,7 @@ if not st.session_state.logged_in:
             use_container_width=True
         ):
 
-            if not email or not password:
+            if not email.strip() or not password:
 
                 st.error(
                     "Please enter your email and password."
@@ -100,7 +112,7 @@ if not st.session_state.logged_in:
             else:
 
                 user = authenticate_user(
-                    email,
+                    email.strip().lower(),
                     password
                 )
 
@@ -108,18 +120,21 @@ if not st.session_state.logged_in:
 
                     st.session_state.logged_in = True
                     st.session_state.user = user
-                    st.session_state.page = "Dashboard"
 
-                    st.success(
-                        "Login successful!"
+                    st.session_state.page = (
+                        "My Nutrition Profile"
                     )
+
+                    st.session_state.nutrition_advice = None
+                    st.session_state.meal_plan = None
+                    st.session_state.daily_tip = None
 
                     st.rerun()
 
                 else:
 
                     st.error(
-                        "Invalid email or password."
+                        "Wrong email or password."
                     )
 
     # ------------------------------------------------
@@ -135,12 +150,12 @@ if not st.session_state.logged_in:
             key="signup_name"
         )
 
-        email = st.text_input(
+        signup_email = st.text_input(
             "Email",
             key="signup_email"
         )
 
-        password = st.text_input(
+        signup_password = st.text_input(
             "Password",
             type="password",
             key="signup_password"
@@ -157,19 +172,23 @@ if not st.session_state.logged_in:
             use_container_width=True
         ):
 
-            if not full_name or not email or not password:
+            if (
+                not full_name.strip()
+                or not signup_email.strip()
+                or not signup_password
+            ):
 
                 st.error(
                     "Please fill in all the required fields."
                 )
 
-            elif password != confirm_password:
+            elif signup_password != confirm_password:
 
                 st.error(
                     "Passwords do not match."
                 )
 
-            elif len(password) < 6:
+            elif len(signup_password) < 6:
 
                 st.error(
                     "Password should be at least 6 characters."
@@ -178,16 +197,18 @@ if not st.session_state.logged_in:
             else:
 
                 success, message = create_user(
-                    full_name,
-                    email,
-                    password
+                    full_name.strip(),
+                    signup_email.strip().lower(),
+                    signup_password
                 )
 
                 if success:
 
                     st.success(message)
+
                     st.info(
-                        "You can now login using your email and password."
+                        "Account created successfully. "
+                        "You can now login."
                     )
 
                 else:
@@ -197,51 +218,70 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# ---------------------------------------------------
-# SIDEBAR
-# ---------------------------------------------------
+# ===================================================
+# LOGGED-IN USER
+# ===================================================
 
 user = st.session_state.user
 
-st.sidebar.title("🥗 Nutrilead")
 
-st.sidebar.write(
+# ===================================================
+# TOP NAVIGATION
+# ===================================================
+
+st.title("🥗 Nutrilead")
+
+st.caption(
     f"Welcome, {user['full_name']}"
 )
 
-st.sidebar.divider()
+st.divider()
+
 
 pages = [
-    "Dashboard",
     "My Nutrition Profile",
+    "Dashboard",
     "Edit Profile",
+    "Progress Track",
 ]
 
-selected_page = st.sidebar.radio(
+
+selected_page = st.selectbox(
     "Menu",
     pages,
     index=pages.index(st.session_state.page)
 )
 
+
 st.session_state.page = selected_page
 
-st.sidebar.divider()
 
-if st.sidebar.button(
+# ---------------------------------------------------
+# LOGOUT
+# ---------------------------------------------------
+
+if st.button(
     "Logout",
     use_container_width=True
 ):
 
     st.session_state.logged_in = False
     st.session_state.user = None
-    st.session_state.page = "Dashboard"
+    st.session_state.page = "My Nutrition Profile"
+
+    st.session_state.nutrition_advice = None
+    st.session_state.meal_plan = None
+    st.session_state.daily_tip = None
 
     st.rerun()
 
 
-# ---------------------------------------------------
-# GET PROFILE
-# ---------------------------------------------------
+st.divider()
+
+
+# ===================================================
+# GET CURRENT PROFILE
+# ===================================================
 
 profile = get_nutrition_profile(
     user["id"]
@@ -249,262 +289,186 @@ profile = get_nutrition_profile(
 
 
 # ===================================================
-# DASHBOARD
+# MY NUTRITION PROFILE
 # ===================================================
 
-if st.session_state.page == "Dashboard":
+if st.session_state.page == "My Nutrition Profile":
 
-    st.title("🥗 AI Nutrition Adviser")
+    st.header("👤 My Nutrition Profile")
 
     st.write(
-        f"Hello, {user['full_name']}! "
-        "Let's make healthier food choices together."
+        "Your nutrition information helps Nutrilead "
+        "provide more personalized guidance."
     )
 
     st.divider()
 
-    if profile is None:
+    # ------------------------------------------------
+    # PROFILE EXISTS
+    # ------------------------------------------------
 
-        st.warning(
-            "Your nutrition profile has not been completed yet."
-        )
+    if profile is not None:
 
-        st.info(
-            "Please go to 'My Nutrition Profile' to provide "
-            "your information."
-        )
-
-    else:
-
-        # ---------------------------------------------
-        # PROFILE SUMMARY
-        # ---------------------------------------------
-
-        st.subheader("Your Nutrition Profile")
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric(
-                "Age",
-                f"{profile['age']} years"
-            )
-
-        with col2:
-            st.metric(
-                "Weight",
-                f"{profile['weight']} kg"
-            )
-
-        with col3:
-            st.metric(
-                "Height",
-                f"{profile['height']} cm"
-            )
-
-        with col4:
-            st.metric(
-                "Goal",
-                profile["health_goal"]
-            )
-
-        st.divider()
-
-        # ---------------------------------------------
-        # AI NUTRITION ADVICE
-        # ---------------------------------------------
-
-        st.subheader("🤖 Personalized Nutrition Advice")
-
-        if st.button(
-            "Get My Nutrition Advice",
-            use_container_width=True
-        ):
-
-            with st.spinner(
-                "Preparing your personalized nutrition advice..."
-            ):
-
-                try:
-
-                    advice = generate_nutrition_advice(
-                        profile
-                    )
-
-                    st.session_state["nutrition_advice"] = advice
-
-                except Exception as error:
-
-                    st.error(
-                        f"Unable to generate advice: {error}"
-                    )
-
-        if "nutrition_advice" in st.session_state:
-
-            st.markdown(
-                st.session_state["nutrition_advice"]
-            )
-
-        st.divider()
-
-        # ---------------------------------------------
-        # MEAL PLAN
-        # ---------------------------------------------
-
-        st.subheader("🍽️ My One-Day Meal Plan")
-
-        if st.button(
-            "Generate Meal Plan",
-            use_container_width=True
-        ):
-
-            with st.spinner(
-                "Creating your meal plan..."
-            ):
-
-                try:
-
-                    meal_plan = generate_meal_plan(
-                        profile
-                    )
-
-                    st.session_state["meal_plan"] = meal_plan
-
-                except Exception as error:
-
-                    st.error(
-                        f"Unable to generate meal plan: {error}"
-                    )
-
-        if "meal_plan" in st.session_state:
-
-            st.markdown(
-                st.session_state["meal_plan"]
-            )
-
-        st.divider()
-
-        # ---------------------------------------------
-        # DAILY TIP
-        # ---------------------------------------------
-
-        st.subheader("💡 Today's Nutrilead Tip")
-
-        if st.button(
-            "Get Today's Tip",
-            use_container_width=True
-        ):
-
-            with st.spinner(
-                "Preparing today's tip..."
-            ):
-
-                try:
-
-                    daily_tip = generate_daily_tip(
-                        profile
-                    )
-
-                    st.session_state["daily_tip"] = daily_tip
-
-                except Exception as error:
-
-                    st.error(
-                        f"Unable to generate tip: {error}"
-                    )
-
-        if "daily_tip" in st.session_state:
-
-            st.info(
-                st.session_state["daily_tip"]
-            )
-
-
-# ===================================================
-# MY NUTRITION PROFILE
-# ===================================================
-
-elif st.session_state.page == "My Nutrition Profile":
-
-    st.title("👤 My Nutrition Profile")
-
-    st.write(
-        "Tell us about yourself so Nutrilead can provide "
-        "more personalized guidance."
-    )
-
-    with st.form("nutrition_profile_form"):
+        st.subheader("Your Saved Profile")
 
         col1, col2 = st.columns(2)
 
         with col1:
 
-            age = st.number_input(
+            st.metric(
                 "Age",
-                min_value=1,
-                max_value=120,
-                value=25
+                f"{profile['age']} years"
             )
 
-            sex = st.selectbox(
-                "Sex",
-                [
-                    "Female",
-                    "Male",
-                    "Prefer not to say"
-                ]
+            st.metric(
+                "Weight",
+                f"{profile['weight']} kg"
             )
 
-            height = st.number_input(
-                "Height (cm)",
-                min_value=50.0,
-                max_value=250.0,
-                value=165.0,
-                step=0.5
+            st.metric(
+                "Height",
+                f"{profile['height']} cm"
             )
 
-            weight = st.number_input(
-                "Weight (kg)",
-                min_value=10.0,
-                max_value=300.0,
-                value=60.0,
-                step=0.5
-            )
-
-            dietary_preference = st.selectbox(
-                "Dietary Preference",
-                [
-                    "No specific preference",
-                    "Vegetarian",
-                    "Vegan",
-                    "Pescatarian",
-                    "Low carbohydrate",
-                    "High protein"
-                ]
+            st.write(
+                f"**Sex:** {profile['sex']}"
             )
 
         with col2:
 
-            health_goal = st.selectbox(
+            st.metric(
                 "Health Goal",
-                [
-                    "General healthy eating",
-                    "Weight management",
-                    "Weight gain",
-                    "Healthy weight loss",
-                    "Muscle support",
-                    "Better energy",
-                    "Healthy digestion"
-                ]
+                profile["health_goal"]
             )
 
-            activity_level = st.selectbox(
-                "Activity Level",
-                [
-                    "Low",
-                    "Moderate",
-                    "High"
-                ]
+            st.write(
+                f"**Dietary Preference:** "
+                f"{profile['dietary_preference']}"
+            )
+
+            st.write(
+                f"**Activity Level:** "
+                f"{profile['activity_level']}"
+            )
+
+            st.write(
+                f"**Food Allergies:** "
+                f"{profile['allergies'] or 'None provided'}"
+            )
+
+        st.divider()
+
+        st.write(
+            f"**Foods You Enjoy:** "
+            f"{profile['preferred_foods'] or 'None provided'}"
+        )
+
+        st.write(
+            f"**Foods You Want to Avoid:** "
+            f"{profile['avoided_foods'] or 'None provided'}"
+        )
+
+        st.success(
+            "Your nutrition profile is saved."
+        )
+
+        st.info(
+            "Use the Menu above and select "
+            "'Edit Profile' to update your information."
+        )
+
+    # ------------------------------------------------
+    # CREATE PROFILE
+    # ------------------------------------------------
+
+    else:
+
+        st.info(
+            "Let's create your nutrition profile first."
+        )
+
+        with st.form(
+            "nutrition_profile_form"
+        ):
+
+            st.subheader(
+                "Personal Information"
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                age = st.number_input(
+                    "Age",
+                    min_value=1,
+                    max_value=120,
+                    value=25
+                )
+
+                sex = st.selectbox(
+                    "Sex",
+                    [
+                        "Female",
+                        "Male",
+                        "Prefer not to say"
+                    ]
+                )
+
+                height = st.number_input(
+                    "Height (cm)",
+                    min_value=50.0,
+                    max_value=250.0,
+                    value=165.0,
+                    step=0.5
+                )
+
+                weight = st.number_input(
+                    "Weight (kg)",
+                    min_value=10.0,
+                    max_value=300.0,
+                    value=60.0,
+                    step=0.5
+                )
+
+            with col2:
+
+                dietary_preference = st.selectbox(
+                    "Dietary Preference",
+                    [
+                        "No specific preference",
+                        "Vegetarian",
+                        "Vegan",
+                        "Pescatarian",
+                        "Low carbohydrate",
+                        "High protein"
+                    ]
+                )
+
+                health_goal = st.selectbox(
+                    "Health Goal",
+                    [
+                        "General healthy eating",
+                        "Weight management",
+                        "Weight gain",
+                        "Healthy weight loss",
+                        "Muscle support",
+                        "Better energy",
+                        "Healthy digestion"
+                    ]
+                )
+
+                activity_level = st.selectbox(
+                    "Activity Level",
+                    [
+                        "Low",
+                        "Moderate",
+                        "High"
+                    ]
+                )
+
+            st.subheader(
+                "Food Information"
             )
 
             allergies = st.text_area(
@@ -522,32 +486,212 @@ elif st.session_state.page == "My Nutrition Profile":
                 placeholder="Example: sugary drinks, fried foods"
             )
 
-        submitted = st.form_submit_button(
-            "Save Nutrition Profile",
-            use_container_width=True
+            submitted = st.form_submit_button(
+                "Save Nutrition Profile",
+                use_container_width=True
+            )
+
+            if submitted:
+
+                save_nutrition_profile(
+                    user["id"],
+                    age,
+                    sex,
+                    height,
+                    weight,
+                    dietary_preference,
+                    health_goal,
+                    activity_level,
+                    allergies,
+                    preferred_foods,
+                    avoided_foods
+                )
+
+                st.session_state.nutrition_advice = None
+                st.session_state.meal_plan = None
+                st.session_state.daily_tip = None
+
+                st.success(
+                    "Your nutrition profile has been saved successfully!"
+                )
+
+                st.rerun()
+
+
+# ===================================================
+# DASHBOARD
+# ===================================================
+
+elif st.session_state.page == "Dashboard":
+
+    st.header("🤖 AI Nutrition Dashboard")
+
+    st.write(
+        f"Hello, {user['full_name']}! "
+        "Let's make healthier food choices together."
+    )
+
+    st.divider()
+
+    if profile is None:
+
+        st.warning(
+            "Your nutrition profile has not been completed."
         )
 
-        if submitted:
+        st.info(
+            "Go to 'My Nutrition Profile' from the Menu "
+            "to provide your information."
+        )
 
-            save_nutrition_profile(
-                user["id"],
-                age,
-                sex,
-                height,
-                weight,
-                dietary_preference,
-                health_goal,
-                activity_level,
-                allergies,
-                preferred_foods,
-                avoided_foods
+    else:
+
+        st.subheader(
+            "Your Nutrition Summary"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.metric(
+                "Age",
+                f"{profile['age']} years"
             )
 
-            st.success(
-                "Your nutrition profile has been saved successfully!"
+            st.metric(
+                "Weight",
+                f"{profile['weight']} kg"
             )
 
-            st.rerun()
+        with col2:
+
+            st.metric(
+                "Height",
+                f"{profile['height']} cm"
+            )
+
+            st.metric(
+                "Health Goal",
+                profile["health_goal"]
+            )
+
+        st.divider()
+
+        # ------------------------------------------------
+        # PERSONALIZED ADVICE
+        # ------------------------------------------------
+
+        st.subheader(
+            "🤖 Personalized Nutrition Advice"
+        )
+
+        if st.button(
+            "Get My Nutrition Advice",
+            use_container_width=True
+        ):
+
+            with st.spinner(
+                "Preparing your personalized nutrition advice..."
+            ):
+
+                try:
+
+                    advice = generate_nutrition_advice(
+                        profile
+                    )
+
+                    st.session_state.nutrition_advice = advice
+
+                except Exception as error:
+
+                    st.error(
+                        f"Unable to generate advice: {error}"
+                    )
+
+        if st.session_state.nutrition_advice:
+
+            st.markdown(
+                st.session_state.nutrition_advice
+            )
+
+        st.divider()
+
+        # ------------------------------------------------
+        # MEAL PLAN
+        # ------------------------------------------------
+
+        st.subheader(
+            "🍽️ My One-Day Meal Plan"
+        )
+
+        if st.button(
+            "Generate Meal Plan",
+            use_container_width=True
+        ):
+
+            with st.spinner(
+                "Creating your meal plan..."
+            ):
+
+                try:
+
+                    meal_plan = generate_meal_plan(
+                        profile
+                    )
+
+                    st.session_state.meal_plan = meal_plan
+
+                except Exception as error:
+
+                    st.error(
+                        f"Unable to generate meal plan: {error}"
+                    )
+
+        if st.session_state.meal_plan:
+
+            st.markdown(
+                st.session_state.meal_plan
+            )
+
+        st.divider()
+
+        # ------------------------------------------------
+        # DAILY TIP
+        # ------------------------------------------------
+
+        st.subheader(
+            "💡 Today's Nutrilead Tip"
+        )
+
+        if st.button(
+            "Get Today's Tip",
+            use_container_width=True
+        ):
+
+            with st.spinner(
+                "Preparing today's tip..."
+            ):
+
+                try:
+
+                    daily_tip = generate_daily_tip(
+                        profile
+                    )
+
+                    st.session_state.daily_tip = daily_tip
+
+                except Exception as error:
+
+                    st.error(
+                        f"Unable to generate tip: {error}"
+                    )
+
+        if st.session_state.daily_tip:
+
+            st.info(
+                st.session_state.daily_tip
+            )
 
 
 # ===================================================
@@ -556,7 +700,7 @@ elif st.session_state.page == "My Nutrition Profile":
 
 elif st.session_state.page == "Edit Profile":
 
-    st.title("✏️ Edit Nutrition Profile")
+    st.header("✏️ Edit Nutrition Profile")
 
     if profile is None:
 
@@ -570,7 +714,9 @@ elif st.session_state.page == "Edit Profile":
 
     else:
 
-        with st.form("edit_profile_form"):
+        with st.form(
+            "edit_profile_form"
+        ):
 
             col1, col2 = st.columns(2)
 
@@ -598,7 +744,9 @@ elif st.session_state.page == "Edit Profile":
                 sex = st.selectbox(
                     "Sex",
                     sex_options,
-                    index=sex_options.index(current_sex)
+                    index=sex_options.index(
+                        current_sex
+                    )
                 )
 
                 height = st.number_input(
@@ -617,6 +765,8 @@ elif st.session_state.page == "Edit Profile":
                     step=0.5
                 )
 
+            with col2:
+
                 dietary_options = [
                     "No specific preference",
                     "Vegetarian",
@@ -628,17 +778,18 @@ elif st.session_state.page == "Edit Profile":
 
                 current_diet = (
                     profile["dietary_preference"]
-                    if profile["dietary_preference"] in dietary_options
+                    if profile["dietary_preference"]
+                    in dietary_options
                     else "No specific preference"
                 )
 
                 dietary_preference = st.selectbox(
                     "Dietary Preference",
                     dietary_options,
-                    index=dietary_options.index(current_diet)
+                    index=dietary_options.index(
+                        current_diet
+                    )
                 )
-
-            with col2:
 
                 goal_options = [
                     "General healthy eating",
@@ -652,14 +803,17 @@ elif st.session_state.page == "Edit Profile":
 
                 current_goal = (
                     profile["health_goal"]
-                    if profile["health_goal"] in goal_options
+                    if profile["health_goal"]
+                    in goal_options
                     else "General healthy eating"
                 )
 
                 health_goal = st.selectbox(
                     "Health Goal",
                     goal_options,
-                    index=goal_options.index(current_goal)
+                    index=goal_options.index(
+                        current_goal
+                    )
                 )
 
                 activity_options = [
@@ -670,30 +824,33 @@ elif st.session_state.page == "Edit Profile":
 
                 current_activity = (
                     profile["activity_level"]
-                    if profile["activity_level"] in activity_options
+                    if profile["activity_level"]
+                    in activity_options
                     else "Low"
                 )
 
                 activity_level = st.selectbox(
                     "Activity Level",
                     activity_options,
-                    index=activity_options.index(current_activity)
+                    index=activity_options.index(
+                        current_activity
+                    )
                 )
 
-                allergies = st.text_area(
-                    "Food Allergies",
-                    value=profile["allergies"] or ""
-                )
+            allergies = st.text_area(
+                "Food Allergies",
+                value=profile["allergies"] or ""
+            )
 
-                preferred_foods = st.text_area(
-                    "Foods You Enjoy",
-                    value=profile["preferred_foods"] or ""
-                )
+            preferred_foods = st.text_area(
+                "Foods You Enjoy",
+                value=profile["preferred_foods"] or ""
+            )
 
-                avoided_foods = st.text_area(
-                    "Foods You Want to Avoid",
-                    value=profile["avoided_foods"] or ""
-                )
+            avoided_foods = st.text_area(
+                "Foods You Want to Avoid",
+                value=profile["avoided_foods"] or ""
+            )
 
             submitted = st.form_submit_button(
                 "Update Profile",
@@ -716,25 +873,37 @@ elif st.session_state.page == "Edit Profile":
                     avoided_foods
                 )
 
+                st.session_state.nutrition_advice = None
+                st.session_state.meal_plan = None
+                st.session_state.daily_tip = None
+
                 st.success(
-                    "Your nutrition profile has been updated."
+                    "Your nutrition profile has been updated successfully."
                 )
 
                 st.rerun()
 
 
 # ===================================================
-# DAILY NUTRITION PROGRESS
+# PROGRESS TRACK
 # ===================================================
 
-if st.session_state.logged_in:
+elif st.session_state.page == "Progress Track":
+
+    st.header("📊 Progress Track")
+
+    st.write(
+        "Track a few simple nutrition and wellness habits each day."
+    )
 
     st.divider()
 
-    st.title("📊 Daily Nutrition Progress")
+    # ------------------------------------------------
+    # DAILY PROGRESS
+    # ------------------------------------------------
 
-    st.write(
-        "Track a few simple habits each day."
+    st.subheader(
+        "📊 Today's Nutrition Progress"
     )
 
     existing_progress = get_daily_progress(
@@ -772,50 +941,46 @@ if st.session_state.logged_in:
         default_activity = ""
         default_rating = 5
 
-    with st.form("daily_progress_form"):
+    with st.form(
+        "daily_progress_form"
+    ):
 
-        col1, col2 = st.columns(2)
+        water = st.number_input(
+            "Water intake today (litres)",
+            min_value=0.0,
+            max_value=10.0,
+            value=default_water,
+            step=0.5
+        )
 
-        with col1:
+        healthy_meals = st.number_input(
+            "Healthy meals today",
+            min_value=0,
+            max_value=10,
+            value=default_meals,
+            step=1
+        )
 
-            water = st.number_input(
-                "Water intake today (litres)",
-                min_value=0.0,
-                max_value=10.0,
-                value=default_water,
-                step=0.5
-            )
+        fruit_vegetables = st.number_input(
+            "Servings of fruits/vegetables",
+            min_value=0,
+            max_value=20,
+            value=default_fruits,
+            step=1
+        )
 
-            healthy_meals = st.number_input(
-                "Healthy meals today",
-                min_value=0,
-                max_value=10,
-                value=default_meals,
-                step=1
-            )
+        physical_activity = st.text_input(
+            "Physical activity",
+            value=default_activity,
+            placeholder="Example: 30 minutes walking"
+        )
 
-            fruit_vegetables = st.number_input(
-                "Servings of fruits/vegetables",
-                min_value=0,
-                max_value=20,
-                value=default_fruits,
-                step=1
-            )
-
-        with col2:
-
-            physical_activity = st.text_input(
-                "Physical activity",
-                value=default_activity,
-                placeholder="Example: 30 minutes walking"
-            )
-
-            wellness_rating = st.slider(
-                "How do you feel today?",
-                min_value=1,
-                max_value=10,
-                value=default_rating
-            )
+        wellness_rating = st.slider(
+            "How do you feel today?",
+            min_value=1,
+            max_value=10,
+            value=default_rating
+        )
 
         submitted = st.form_submit_button(
             "Save Today's Progress",
@@ -839,16 +1004,15 @@ if st.session_state.logged_in:
 
             st.rerun()
 
-
-# ===================================================
-# PROGRESS HISTORY
-# ===================================================
-
-if st.session_state.logged_in:
-
     st.divider()
 
-    st.subheader("📈 Progress History")
+    # ------------------------------------------------
+    # PROGRESS HISTORY
+    # ------------------------------------------------
+
+    st.subheader(
+        "📈 Progress History"
+    )
 
     history = get_progress_history(
         user["id"]
@@ -860,19 +1024,21 @@ if st.session_state.logged_in:
 
             date = record[0]
             water = record[1]
-            healthy_meals = record[2]
+            meals = record[2]
             fruits = record[3]
             activity = record[4]
             rating = record[5]
 
-            with st.expander(date):
+            with st.expander(
+                str(date)
+            ):
 
                 st.write(
                     f"💧 Water: {water} L"
                 )
 
                 st.write(
-                    f"🥗 Healthy meals: {healthy_meals}"
+                    f"🥗 Healthy meals: {meals}"
                 )
 
                 st.write(
@@ -894,9 +1060,9 @@ if st.session_state.logged_in:
         )
 
 
-# ---------------------------------------------------
+# ===================================================
 # FOOTER
-# ---------------------------------------------------
+# ===================================================
 
 st.divider()
 
